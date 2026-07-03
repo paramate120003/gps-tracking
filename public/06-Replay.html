@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip Replay — GPS Track</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+    .container { display: flex; height: 100vh; }
+    .sidebar { width: 250px; background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); color: white; overflow-y: auto; padding: 20px 0; box-shadow: 2px 0 8px rgba(0,0,0,0.1); }
+    .sidebar-header { padding: 20px 20px 30px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+    .sidebar-header h1 { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
+    .sidebar-header p { font-size: 12px; opacity: 0.8; }
+    .nav-menu { list-style: none; }
+    .nav-item { margin: 0; }
+    .nav-link { display: block; padding: 15px 20px; color: rgba(255,255,255,0.8); text-decoration: none; cursor: pointer; transition: all 0.3s ease; border-left: 3px solid transparent; }
+    .nav-link:hover { background: rgba(255,255,255,0.1); color: white; border-left-color: #4fc3f7; }
+    .nav-link.active { background: rgba(255,255,255,0.15); color: white; border-left-color: #4fc3f7; font-weight: 600; }
+    .nav-icon { display: inline-block; width: 20px; text-align: center; margin-right: 12px; }
+    .content { flex: 1; display: flex; flex-direction: column; }
+    .header { background: white; padding: 20px 30px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .header h2 { font-size: 24px; font-weight: 600; color: #333; }
+    .user-info { display: flex; align-items: center; gap: 15px; }
+    .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; }
+    .main-content { flex: 1; overflow-y: auto; padding: 30px; }
+    .map-container { width: 100%; height: 550px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    #mapContainer { width: 100%; height: 100%; }
+    .card { background: white; border-radius: 8px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h3 { color: #333; margin-bottom: 15px; font-size: 18px; }
+    .trip-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-top: 20px; }
+    .info-card { background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%); padding: 15px; border-radius: 8px; border: 1px solid rgba(124, 58, 237, 0.1); }
+    .info-card-label { font-size: 12px; color: #888; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+    .info-card-value { font-size: 18px; font-weight: 700; color: #1f2937; }
+    .driver-option:hover { background: #f5f5f5; }
+    input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; outline: none; cursor: pointer; border-radius: 4px; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: white; border: 3px solid #7c3aed; cursor: pointer; box-shadow: 0 2px 6px rgba(124,58,237,0.4); margin-top: -5px; }
+    input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: white; border: 3px solid #7c3aed; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>🚗 GPS Track</h1>
+      <p>Fleet Management</p>
+    </div>
+    <ul class="nav-menu">
+      <li class="nav-item"><a href="02-Map.html" class="nav-link"><span class="nav-icon">🗺️</span>Live Map</a></li>
+      <li class="nav-item"><a href="03-Drivers.html" class="nav-link"><span class="nav-icon">👥</span>Drivers</a></li>
+      <li class="nav-item"><a href="06-Replay.html" class="nav-link active"><span class="nav-icon">▶️</span>Replay</a></li>
+      <li class="nav-item"><a href="07-Settings.html" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+    </ul>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content">
+    <!-- Header -->
+    <div class="header">
+      <h2>Trip Replay</h2>
+      <div class="user-info">
+        <span>Welcome, Admin</span>
+        <div class="user-avatar">A</div>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="card">
+        <h3>Replay Route</h3>
+
+        <!-- Search & Driver Info Section -->
+        <div style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #333;">Select Driver:</label>
+          <div style="display: flex; gap: 16px; align-items: stretch;">
+            <!-- Search Box -->
+            <div style="flex: 0 0 280px; position: relative;">
+              <input type="text" id="searchDriver" placeholder="ค้นหา: เลขหน้า / ทะเบียน / ชื่อ..." autocomplete="off"
+                style="width: 100%; padding: 12px 14px; border: 2px solid #e8e8e8; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.3s; box-sizing: border-box; background: white;">
+              <div id="searchResultsDropdown" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ddd; border-top: none; border-radius: 0 0 8px 8px; max-height: 300px; overflow-y: auto; z-index: 1000; display: none; margin-top: -2px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></div>
+            </div>
+
+            <!-- Driver Info Card -->
+            <div id="driverInfoCard" style="display: none; flex: 1; background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); padding: 14px 24px; border-radius: 8px; color: white; grid-template-columns: repeat(6, 1fr); gap: 32px; align-items: center;"></div>
+          </div>
+        </div>
+
+        <!-- Date & Time Controls -->
+        <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 20px;">
+          <div style="flex: 0 0 180px;">
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px;">Select Date:</label>
+            <input type="date" id="dateSelect" style="width: 100%; padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px; outline: none; box-sizing: border-box;">
+          </div>
+          <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label style="font-size: 12px; font-weight: 600; color: #666;">Time (24h format):</label>
+              <span id="timeDisplayTop" style="font-size: 14px; font-weight: 700; color: #ec4899;">00:00</span>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center; flex: 1;">
+              <input type="range" id="timeSlider" min="0" max="1440" value="0" style="flex: 1;" />
+              <span id="timeDisplay" style="font-size: 14px; font-weight: 600; color: #333; flex: 0 0 60px; text-align: right;">00:00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="map-container">
+          <div id="mapContainer"></div>
+        </div>
+
+        <div class="trip-info">
+          <div class="info-card">
+            <div class="info-card-label">Distance</div>
+            <div class="info-card-value"><span id="distance">0.0</span> km</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Duration</div>
+            <div class="info-card-value"><span id="duration">0</span> min</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Avg Speed</div>
+            <div class="info-card-value"><span id="avgSpeed">0</span> km/h</div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-label">Max Speed</div>
+            <div class="info-card-value"><span id="maxSpeed">0</span> km/h</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var state = {
+    drivers: [],
+    filteredDrivers: [],
+    selectedDriver: null,
+    map: null,
+    routePath: null,
+    currentMarker: null,
+    routePoints: [],
+    currentTimeMinutes: 0
+  };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function generateDrivers() {
+    var driverNames = ['สมชาย สมนวล', 'ประณัต ศิริสม', 'ณัฐวุฒิ เพชรา', 'กิตติศักดิ์ มหาชน', 'อนุวัฒน์ กิจการ',
+      'ธนา ธรรมสาธารณ์', 'อภิรัฒน์ สิทธิวรรค', 'ชาติชาย มิ่งขวัญ', 'ณรงค์ โภคา', 'สมโต จิตรสัน',
+      'วิชัย ศรีสิงห์', 'ประพัฒน์ ทองวิ', 'จิรายุ ศรีสกุล', 'ยุวศักดิ์ อินสมบัติ', 'เศรษฐ คำมา',
+      'นิรมล นามวงศ์', 'สุทธิพงษ์ จันทกร', 'ศรัณย์ ศรีวิไล', 'อมรศักดิ์ นามภูมิ', 'พิศาล สุขหาร'];
+    var plateNumbers = ['ทอ0001', 'ทอ0002', 'ทอ0003', 'ทอ0004', 'ทอ0005', 'ทอ0006', 'ทอ0007', 'ทอ0008', 'ทอ0009', 'ทอ0010',
+      'ทอ0011', 'ทอ0012', 'ทอ0013', 'ทอ0014', 'ทอ0015', 'ทอ0016', 'ทอ0017', 'ทอ0018', 'ทอ0019', 'ทอ0020'];
+    var phones = ['0812345601', '0812345602', '0812345603', '0812345604', '0812345605', '0812345606', '0812345607', '0812345608', '0812345609', '0812345610',
+      '0812345611', '0812345612', '0812345613', '0812345614', '0812345615', '0812345616', '0812345617', '0812345618', '0812345619', '0812345620'];
+    var cooperatives = ['สหกรณ์ขนส่งฯ', 'สหกรณ์ลอจิสติก', 'สหกรณ์คมนาคม', 'สหกรณ์ขนส่งผู้บริหาร', 'สหกรณ์ขนส่งเคหะแห่ง', 'สหกรณ์แพร่หลาย', 'สหกรณ์บริการ', 'สหกรณ์ขนส่งท่องเที่ยว', 'สหกรณ์โลจิสติกส์', 'สหกรณ์บจก'];
+
+    var drivers = [];
+    for (var i = 1; i <= 20; i++) {
+      drivers.push({
+        id: String(i).padStart(4, '0'),
+        plate: plateNumbers[i - 1],
+        name: driverNames[i - 1],
+        phone: phones[i - 1],
+        cooperative: cooperatives[i % cooperatives.length]
+      });
+    }
+    state.drivers = drivers;
+    state.filteredDrivers = drivers;
+  }
+
+  function initMap() {
+    var mapContainer = document.getElementById('mapContainer');
+    if (!mapContainer || !mapContainer.offsetHeight) { setTimeout(initMap, 300); return; }
+
+    var map = L.map('mapContainer').setView([13.7563, 100.5018], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19
+    }).addTo(map);
+    state.map = map;
+  }
+
+  // ---- Search ----
+  function renderDropdown() {
+    var dd = document.getElementById('searchResultsDropdown');
+    var term = document.getElementById('searchDriver').value.toLowerCase().trim();
+
+    if (!term) { dd.style.display = 'none'; dd.innerHTML = ''; return; }
+
+    state.filteredDrivers = state.drivers.filter(function (d) {
+      return d.name.toLowerCase().indexOf(term) !== -1 ||
+        d.id.toLowerCase().indexOf(term) !== -1 ||
+        d.plate.toLowerCase().indexOf(term) !== -1;
+    });
+
+    if (!state.filteredDrivers.length) { dd.style.display = 'none'; dd.innerHTML = ''; return; }
+
+    dd.innerHTML = state.filteredDrivers.map(function (driver) {
+      return '<div class="driver-option" data-id="' + esc(driver.id) + '" style="padding: 12px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s; font-size: 14px;">' +
+          '<div style="font-weight: 600; color: #7c3aed;">' + esc(driver.id) + '</div>' +
+          '<div style="font-size: 12px; color: #666;">' + esc(driver.plate) + ' • ' + esc(driver.name) + '</div>' +
+        '</div>';
+    }).join('');
+    dd.style.display = 'block';
+
+    Array.prototype.forEach.call(dd.querySelectorAll('.driver-option'), function (el) {
+      el.addEventListener('click', function () { selectDriver(el.getAttribute('data-id')); });
+    });
+  }
+
+  function renderDriverCard(driver) {
+    var card = document.getElementById('driverInfoCard');
+    if (!driver) { card.style.display = 'none'; return; }
+    var fields = [
+      ['เลขหน้าจอ', driver.id],
+      ['ทะเบียนรถ', driver.plate],
+      ['ชื่อคนขับ', driver.name],
+      ['เบอร์ติดต่อ', driver.phone],
+      ['สหกรณ์', driver.cooperative],
+      ['Status', '● Online']
+    ];
+    card.innerHTML = fields.map(function (f) {
+      return '<div style="text-align: center;">' +
+          '<div style="font-size: 11px; opacity: 0.85; margin-bottom: 4px; font-weight: 500; white-space: nowrap;">' + esc(f[0]) + '</div>' +
+          '<div style="font-size: 18px; font-weight: 700; white-space: nowrap;">' + esc(f[1]) + '</div>' +
+        '</div>';
+    }).join('');
+    card.style.display = 'grid';
+  }
+
+  function selectDriver(driverId) {
+    var driver = state.drivers.find(function (d) { return d.id === driverId; });
+    if (!driver) return;
+    state.selectedDriver = driver;
+    state.currentTimeMinutes = 0;
+
+    document.getElementById('searchDriver').value = driver.id + ' - ' + driver.plate + ' - ' + driver.name;
+    document.getElementById('searchResultsDropdown').style.display = 'none';
+    renderDriverCard(driver);
+    drawRoute();
+
+    document.getElementById('timeSlider').value = 0;
+    updateSlider(0);
+    updateMarkerPosition(0);
+  }
+
+  // ---- Route ----
+  function buildRoutePoints(driver) {
+    // Deterministic pseudo-route seeded by driver id so each driver differs
+    var seed = parseInt(driver.id, 10) || 1;
+    var baseLat = 13.7563 + ((seed % 5) - 2) * 0.01;
+    var baseLng = 100.5018 + ((seed % 7) - 3) * 0.01;
+    var pts = [];
+    for (var i = 0; i < 6; i++) {
+      pts.push([
+        baseLat + i * 0.004 + ((seed * (i + 1)) % 5) * 0.0008,
+        baseLng + i * 0.005 + ((seed * (i + 2)) % 6) * 0.0009
+      ]);
+    }
+    return pts;
+  }
+
+  function drawRoute() {
+    if (!state.map || !state.selectedDriver) return;
+    if (state.routePath) state.map.removeLayer(state.routePath);
+    if (state.currentMarker) { state.map.removeLayer(state.currentMarker); state.currentMarker = null; }
+
+    state.routePoints = buildRoutePoints(state.selectedDriver);
+    state.routePath = L.polyline(state.routePoints, {
+      color: '#ec4899', weight: 8, opacity: 0.9
+    }).addTo(state.map);
+    state.map.fitBounds(state.routePath.getBounds(), { padding: [40, 40] });
+  }
+
+  // Interpolate a point along the route by progress 0..1
+  function pointAtProgress(progress) {
+    var pts = state.routePoints;
+    if (!pts.length) return null;
+    if (pts.length === 1) return pts[0];
+    var segCount = pts.length - 1;
+    var scaled = progress * segCount;
+    var idx = Math.min(segCount - 1, Math.floor(scaled));
+    var t = scaled - idx;
+    var a = pts[idx], b = pts[idx + 1];
+    return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  }
+
+  function updateMarkerPosition(minutes) {
+    if (!state.selectedDriver || !state.map || !state.routePoints.length) return;
+    var progress = Math.min(1, Math.max(0, minutes / 1440));
+    var pos = pointAtProgress(progress);
+    if (!pos) return;
+
+    var timeStr = formatTime(minutes);
+    if (state.currentMarker) {
+      state.currentMarker.setLatLng(pos);
+      state.currentMarker.setPopupContent(timeStr);
+    } else {
+      state.currentMarker = L.circleMarker(pos, {
+        radius: 10, fillColor: '#ec4899', color: '#7c3aed', weight: 2, opacity: 1, fillOpacity: 0.9
+      }).bindPopup(timeStr).addTo(state.map);
+    }
+  }
+
+  // ---- Time slider ----
+  function formatTime(minutes) {
+    var h = Math.floor(minutes / 60);
+    var m = minutes % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function updateSlider(minutes) {
+    var timeStr = formatTime(minutes);
+    document.getElementById('timeDisplay').textContent = timeStr;
+    document.getElementById('timeDisplayTop').textContent = timeStr;
+    var pct = (minutes / 1440) * 100;
+    var slider = document.getElementById('timeSlider');
+    slider.style.background = 'linear-gradient(to right, #7c3aed 0%, #ec4899 ' + pct + '%, #e0e0e0 ' + pct + '%, #e0e0e0 100%)';
+    state.currentTimeMinutes = minutes;
+    updateTripInfo(minutes);
+  }
+
+  function updateTripInfo(minutes) {
+    var distance = (minutes * 0.2).toFixed(1);
+    var duration = minutes;
+    var avgSpeed = minutes > 0 ? Math.round(distance / (minutes / 60)) : 0;
+    var maxSpeed = Math.round(45 + minutes * 0.05);
+    document.getElementById('distance').textContent = distance;
+    document.getElementById('duration').textContent = duration;
+    document.getElementById('avgSpeed').textContent = avgSpeed;
+    document.getElementById('maxSpeed').textContent = minutes > 0 ? maxSpeed : 0;
+  }
+
+  function setupDateInput() {
+    var input = document.getElementById('dateSelect');
+    var today = new Date();
+    var minDate = new Date();
+    minDate.setMonth(minDate.getMonth() - 2);
+    input.max = today.toISOString().split('T')[0];
+    input.min = minDate.toISOString().split('T')[0];
+    input.value = today.toISOString().split('T')[0];
+  }
+
+  function autoLoadDriver() {
+    var driverId = sessionStorage.getItem('replayDriverId');
+    if (driverId) {
+      sessionStorage.removeItem('replayDriverId');
+      var driver = state.drivers.find(function (d) { return d.id === driverId; });
+      if (driver) selectDriver(driverId);
+    }
+  }
+
+  function init() {
+    generateDrivers();
+    setupDateInput();
+    updateSlider(0);
+
+    var search = document.getElementById('searchDriver');
+    search.addEventListener('input', renderDropdown);
+    search.addEventListener('focus', function () { if (search.value.trim()) renderDropdown(); });
+
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('#searchDriver') && !e.target.closest('#searchResultsDropdown')) {
+        document.getElementById('searchResultsDropdown').style.display = 'none';
+      }
+    });
+
+    var slider = document.getElementById('timeSlider');
+    slider.addEventListener('input', function (e) {
+      var minutes = parseInt(e.target.value, 10) || 0;
+      updateSlider(minutes);
+      updateMarkerPosition(minutes);
+    });
+
+    document.getElementById('dateSelect').addEventListener('change', function () {
+      // New day → reset marker to start of route
+      if (state.currentMarker) { state.map.removeLayer(state.currentMarker); state.currentMarker = null; }
+      slider.value = 0;
+      updateSlider(0);
+      if (state.selectedDriver) updateMarkerPosition(0);
+    });
+
+    setTimeout(function () {
+      initMap();
+      setTimeout(autoLoadDriver, 400);
+    }, 300);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

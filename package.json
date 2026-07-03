@@ -1,0 +1,16 @@
+{
+  "name": "gps-tracking-cloud",
+  "version": "1.0.0",
+  "description": "GPS Tracking backend + dashboard (cloud deploy)",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  }
+}

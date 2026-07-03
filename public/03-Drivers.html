@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drivers — GPS Track</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+    .container { display: flex; height: 100vh; }
+    .sidebar { width: 250px; background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); color: white; overflow-y: auto; padding: 20px 0; box-shadow: 2px 0 8px rgba(0,0,0,0.1); }
+    .sidebar-header { padding: 20px 20px 30px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+    .sidebar-header h1 { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
+    .sidebar-header p { font-size: 12px; opacity: 0.8; }
+    .nav-menu { list-style: none; }
+    .nav-item { margin: 0; }
+    .nav-link { display: block; padding: 15px 20px; color: rgba(255,255,255,0.8); text-decoration: none; cursor: pointer; transition: all 0.3s ease; border-left: 3px solid transparent; }
+    .nav-link:hover { background: rgba(255,255,255,0.1); color: white; border-left-color: #4fc3f7; }
+    .nav-link.active { background: rgba(255,255,255,0.15); color: white; border-left-color: #4fc3f7; font-weight: 600; }
+    .nav-icon { display: inline-block; width: 20px; text-align: center; margin-right: 12px; }
+    .content { flex: 1; display: flex; flex-direction: column; }
+    .header { background: white; padding: 20px 30px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .header h2 { font-size: 24px; font-weight: 600; color: #333; }
+    .user-info { display: flex; align-items: center; gap: 15px; }
+    .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; }
+    .main-content { flex: 1; overflow-y: auto; padding: 30px; }
+    .card { background: white; border-radius: 8px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h3 { color: #333; margin-bottom: 15px; font-size: 18px; }
+    .btn { display: inline-block; padding: 10px 20px; background: #2a5298; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.3s; margin-bottom: 20px; }
+    .btn:hover { background: #1e3c72; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f5f5f5; padding: 16px 12px; text-align: left; font-weight: 700; color: #333; border-bottom: 2px solid #e0e0e0; white-space: nowrap; font-size: 14px; }
+    td { padding: 14px 12px; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
+    tr:hover { background: #f9f9f9; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; background: #c8e6c9; color: #2e7d32; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: white; border-radius: 8px; padding: 30px; width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+    .modal-header { font-size: 20px; font-weight: 700; margin-bottom: 20px; color: #333; }
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 14px; font-weight: 600; color: #333; margin-bottom: 8px; }
+    .form-input { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    .form-input:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1); }
+    .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .btn-primary { background: #7c3aed; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-secondary { background: #ddd; color: #333; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .btn-secondary:hover { background: #ccc; }
+    .btn-edit { background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); color: white; font-size: 12px; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700; }
+    .name-link { color: #2a5298; text-decoration: none; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>🚗 GPS Track</h1>
+      <p>Fleet Management</p>
+    </div>
+    <ul class="nav-menu">
+      <li class="nav-item"><a href="02-Map.html" class="nav-link"><span class="nav-icon">🗺️</span>Live Map</a></li>
+      <li class="nav-item"><a href="03-Drivers.html" class="nav-link active"><span class="nav-icon">👥</span>Drivers</a></li>
+      <li class="nav-item"><a href="06-Replay.html" class="nav-link"><span class="nav-icon">▶️</span>Replay</a></li>
+      <li class="nav-item"><a href="07-Settings.html" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+    </ul>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content">
+    <!-- Header -->
+    <div class="header">
+      <h2>Driver Management</h2>
+      <div class="user-info">
+        <span>Welcome, Admin</span>
+        <div class="user-avatar">A</div>
+      </div>
+    </div>
+
+    <!-- Modal Edit Driver -->
+    <div id="editDriverModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">แก้ไขข้อมูลคนขับ</div>
+        <form id="editDriverForm">
+          <div class="form-group">
+            <label class="form-label">ทะเบียนรถ</label>
+            <input type="text" class="form-input" id="editPlate" placeholder="เช่น ทอ0001" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เลขหน้าจอ</label>
+            <input type="text" class="form-input" id="editScreenNo" placeholder="เช่น 0001" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ชื่อ นามสกุล</label>
+            <input type="text" class="form-input" id="editDriverName" placeholder="เช่น สมชาย สมนวล" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เบอร์ติดต่อ</label>
+            <input type="tel" class="form-input" id="editPhone" placeholder="เช่น 0812345621" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">สหกรณ์</label>
+            <input type="text" class="form-input" id="editCooperative" placeholder="เช่น สหกรณ์ขนส่ง" required>
+          </div>
+          <div class="modal-buttons">
+            <button type="button" class="btn-secondary" id="editCancelBtn">ยกเลิก</button>
+            <button type="submit" class="btn-primary">บันทึก</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal Add Driver -->
+    <div id="addDriverModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">เพิ่มคนขับใหม่</div>
+        <form id="addDriverForm">
+          <div class="form-group">
+            <label class="form-label">ทะเบียนรถ</label>
+            <input type="text" class="form-input" id="plate" placeholder="เช่น ทอ0021" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เลขหน้าจอ</label>
+            <input type="text" class="form-input" id="screenNo" placeholder="เช่น 0021" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ชื่อ นามสกุล</label>
+            <input type="text" class="form-input" id="driverName" placeholder="เช่น สมชาย สมนวล" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">เบอร์ติดต่อ</label>
+            <input type="tel" class="form-input" id="phone" placeholder="เช่น 0812345621" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">สหกรณ์</label>
+            <input type="text" class="form-input" id="cooperative" placeholder="เช่น สหกรณ์ขนส่ง" required>
+          </div>
+          <div class="modal-buttons">
+            <button type="button" class="btn-secondary" id="addCancelBtn">ยกเลิก</button>
+            <button type="submit" class="btn-primary">เพิ่มคนขับ</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Drivers List -->
+    <div class="main-content">
+      <div class="card">
+        <h3>Drivers</h3>
+        <button class="btn" id="openAddBtn">+ Add Driver</button>
+        <table>
+          <thead>
+            <tr>
+              <th>ทะเบียนรถ</th>
+              <th>เลขหน้าจอ</th>
+              <th>ชื่อ นามสกุล</th>
+              <th>เบอร์ติดต่อ</th>
+              <th>สหกรณ์</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="driversBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var state = { drivers: [], useApi: false };
+  var currentEditingDriverId = null;
+
+  function fetchJSON(url, opts) {
+    return fetch(url, Object.assign({ cache: 'no-store' }, opts || {})).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
+    });
+  }
+
+  function generateDrivers() {
+    var drivers = [];
+    var plateNumbers = ['ทอ0001', 'ทอ0002', 'ทอ0003', 'ทอ0004', 'ทอ0005', 'ทอ0006', 'ทอ0007', 'ทอ0008', 'ทอ0009', 'ทอ0010',
+      'ทอ0011', 'ทอ0012', 'ทอ0013', 'ทอ0014', 'ทอ0015', 'ทอ0016', 'ทอ0017', 'ทอ0018', 'ทอ0019', 'ทอ0020'];
+    var driverNames = ['สมชาย สมนวล', 'ประณัต ศิริสม', 'ณัฐวุฒิ เพชรา', 'กิตติศักดิ์ มหาชน', 'อนุวัฒน์ กิจการ',
+      'ธนา ธรรมสาธารณ์', 'อภิรัฒน์ สิทธิวรรค', 'ชาติชาย มิ่งขวัญ', 'ณรงค์ โภคา', 'สมโต จิตรสัน',
+      'วิชัย ศรีสิงห์', 'ประพัฒน์ ทองวิ', 'จิรายุ ศรีสกุล', 'ยุวศักดิ์ อินสมบัติ', 'เศรษฐ คำมา',
+      'นิรมล นามวงศ์', 'สุทธิพงษ์ จันทกร', 'ศรัณย์ ศรีวิไล', 'อมรศักดิ์ นามภูมิ', 'พิศาล สุขหาร'];
+    var phones = ['0812345601', '0812345602', '0812345603', '0812345604', '0812345605', '0812345606', '0812345607', '0812345608', '0812345609', '0812345610',
+      '0812345611', '0812345612', '0812345613', '0812345614', '0812345615', '0812345616', '0812345617', '0812345618', '0812345619', '0812345620'];
+    var cooperatives = ['สหกรณ์ขนส่งฯ', 'สหกรณ์ลอจิสติก', 'สหกรณ์คมนาคม', 'สหกรณ์ขนส่งผู้บริหาร', 'สหกรณ์ขนส่งเคหะแห่ง', 'สหกรณ์แพร่หลาย', 'สหกรณ์บริการ', 'สหกรณ์ขนส่งท่องเที่ยว', 'สหกรณ์โลจิสติกส์', 'สหกรณ์บจก'];
+
+    for (var i = 1; i <= 20; i++) {
+      drivers.push({
+        id: String(i).padStart(4, '0'),
+        name: driverNames[i - 1],
+        vehicle: 'Vehicle ' + i,
+        license: 'DL' + String(i).padStart(5, '0'),
+        phone: phones[i - 1],
+        plate: plateNumbers[i - 1],
+        cooperative: cooperatives[i % cooperatives.length]
+      });
+    }
+    state.drivers = drivers;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function renderTable() {
+    var body = document.getElementById('driversBody');
+    body.innerHTML = state.drivers.map(function (driver) {
+      return '<tr>' +
+        '<td>' + esc(driver.plate) + '</td>' +
+        '<td>' + esc(driver.id) + '</td>' +
+        '<td><a href="05-Driver-Detail.html?id=' + encodeURIComponent(driver.id) + '" class="name-link">' + esc(driver.name) + '</a></td>' +
+        '<td>' + esc(driver.phone) + '</td>' +
+        '<td>' + esc(driver.cooperative) + '</td>' +
+        '<td><span class="status-badge">Active</span></td>' +
+        '<td><button class="btn-edit" data-id="' + esc(driver.id) + '">✎ Edit</button></td>' +
+      '</tr>';
+    }).join('');
+
+    Array.prototype.forEach.call(body.querySelectorAll('.btn-edit'), function (el) {
+      el.addEventListener('click', function () { editDriver(el.getAttribute('data-id')); });
+    });
+  }
+
+  // ---- Add modal ----
+  function openModal() { document.getElementById('addDriverModal').classList.add('active'); }
+  function closeModal() { document.getElementById('addDriverModal').classList.remove('active'); }
+
+  function handleAddDriver(e) {
+    e.preventDefault();
+    var payload = {
+      screenId: document.getElementById('screenNo').value,
+      name: document.getElementById('driverName').value,
+      phone: document.getElementById('phone').value,
+      plate: document.getElementById('plate').value,
+      cooperative: document.getElementById('cooperative').value
+    };
+
+    if (state.useApi) {
+      fetchJSON('/api/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      }).then(loadDriversFromApi).catch(function () { alert('บันทึกไม่สำเร็จ — เชื่อมต่อ server ไม่ได้'); });
+    } else {
+      state.drivers.push({ id: payload.screenId, name: payload.name, phone: payload.phone, plate: payload.plate, cooperative: payload.cooperative });
+      renderTable();
+    }
+    document.getElementById('addDriverForm').reset();
+    closeModal();
+  }
+
+  // ---- Edit modal ----
+  function editDriver(driverId) {
+    var driver = state.drivers.find(function (d) { return d.id === driverId; });
+    if (!driver) return;
+    document.getElementById('editPlate').value = driver.plate;
+    document.getElementById('editScreenNo').value = driver.id;
+    document.getElementById('editDriverName').value = driver.name;
+    document.getElementById('editPhone').value = driver.phone;
+    document.getElementById('editCooperative').value = driver.cooperative;
+    currentEditingDriverId = driverId;
+    document.getElementById('editDriverModal').classList.add('active');
+  }
+
+  function closeEditModal() { document.getElementById('editDriverModal').classList.remove('active'); }
+
+  function saveEditDriver(e) {
+    e.preventDefault();
+    var plate = document.getElementById('editPlate').value;
+    var name = document.getElementById('editDriverName').value;
+    var phone = document.getElementById('editPhone').value;
+    var cooperative = document.getElementById('editCooperative').value;
+
+    if (state.useApi) {
+      fetchJSON('/api/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ screenId: currentEditingDriverId, name: name, phone: phone, plate: plate, cooperative: cooperative })
+      }).then(loadDriversFromApi).catch(function () { alert('บันทึกไม่สำเร็จ — เชื่อมต่อ server ไม่ได้'); });
+    } else {
+      state.drivers = state.drivers.map(function (d) {
+        if (d.id === currentEditingDriverId) {
+          return Object.assign({}, d, { plate: plate, name: name, phone: phone, cooperative: cooperative });
+        }
+        return d;
+      });
+      renderTable();
+    }
+    closeEditModal();
+  }
+
+  function loadDriversFromApi() {
+    return fetchJSON('/api/drivers').then(function (list) {
+      state.drivers = list;
+      renderTable();
+    });
+  }
+
+  function init() {
+    // Decide data source: API if reachable, otherwise demo data.
+    fetchJSON('/api/health').then(function () {
+      state.useApi = true;
+      return loadDriversFromApi();
+    }).catch(function () {
+      generateDrivers();
+      renderTable();
+    });
+
+    document.getElementById('openAddBtn').addEventListener('click', openModal);
+    document.getElementById('addCancelBtn').addEventListener('click', closeModal);
+    document.getElementById('addDriverForm').addEventListener('submit', handleAddDriver);
+
+    document.getElementById('editCancelBtn').addEventListener('click', closeEditModal);
+    document.getElementById('editDriverForm').addEventListener('submit', saveEditDriver);
+
+    // close modal when clicking the dark overlay
+    Array.prototype.forEach.call(document.querySelectorAll('.modal'), function (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) modal.classList.remove('active');
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

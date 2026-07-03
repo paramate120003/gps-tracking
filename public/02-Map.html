@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Map — GPS Track</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+    .container { display: flex; height: 100vh; }
+    .sidebar { width: 250px; background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%); color: white; overflow-y: auto; padding: 20px 0; box-shadow: 2px 0 8px rgba(0,0,0,0.1); }
+    .sidebar-header { padding: 20px 20px 30px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+    .sidebar-header h1 { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
+    .sidebar-header p { font-size: 12px; opacity: 0.8; }
+    .nav-menu { list-style: none; }
+    .nav-item { margin: 0; }
+    .nav-link { display: block; padding: 15px 20px; color: rgba(255,255,255,0.8); text-decoration: none; cursor: pointer; transition: all 0.3s ease; border-left: 3px solid transparent; }
+    .nav-link:hover { background: rgba(255,255,255,0.1); color: white; border-left-color: #4fc3f7; }
+    .nav-link.active { background: rgba(255,255,255,0.15); color: white; border-left-color: #4fc3f7; font-weight: 600; }
+    .nav-icon { display: inline-block; width: 20px; text-align: center; margin-right: 12px; }
+    .content { flex: 1; display: flex; flex-direction: column; }
+    .header { background: white; padding: 20px 30px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .header h2 { font-size: 24px; font-weight: 600; color: #333; }
+    .user-info { display: flex; align-items: center; gap: 15px; }
+    .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; }
+    .main-content { flex: 1; overflow-y: auto; padding: 30px; }
+    .map-container { width: 100%; height: 550px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    #mapContainer { width: 100%; height: 100%; }
+    .card { background: white; border-radius: 8px; padding: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h3 { color: #333; margin-bottom: 15px; font-size: 18px; }
+    .search-bar { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; }
+    .search-input { flex: 1; padding: 10px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    .search-input:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1); }
+    .search-btn { background: #7c3aed; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+    .search-btn:hover { background: #6d28d9; }
+    .status-dashboard { display: flex; gap: 6px; padding: 10px 12px; background: linear-gradient(135deg, rgba(197, 169, 243, 0.3) 0%, rgba(244, 194, 231, 0.3) 100%); border-radius: 8px; box-shadow: 0 1px 4px rgba(124, 58, 237, 0.06); border: 2px solid rgba(124, 58, 237, 0.15); backdrop-filter: blur(8px); align-items: center; }
+    .status-card { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: rgba(255, 255, 255, 0.95); border-radius: 5px; box-shadow: 0 1px 3px rgba(124, 58, 237, 0.05); border: 1px solid rgba(236, 72, 153, 0.1); }
+    .status-dot { width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.15); animation: pulse 2s infinite; }
+    .status-dot.online { background: #22c55e; }
+    .status-dot.offline { background: #ef4444; }
+    .status-text { font-size: 14px; font-weight: 700; color: #1f2937; letter-spacing: 0.2px; }
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } }
+    .source-badge { margin-left: auto; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; }
+    .source-badge.live { background: #dcfce7; color: #166534; }
+    .source-badge.demo { background: #fef9c3; color: #854d0e; }
+    .info-panel { background: linear-gradient(135deg, rgba(197, 169, 243, 0.15) 0%, rgba(244, 194, 231, 0.15) 100%); border: 2px solid rgba(124, 58, 237, 0.25); border-radius: 12px; padding: 14px 18px; margin-top: 12px; display: flex; gap: 28px; align-items: center; flex-wrap: wrap; box-shadow: 0 6px 18px rgba(124, 58, 237, 0.1); backdrop-filter: blur(8px); }
+    .info-row { display: flex; flex-direction: column; gap: 3px; }
+    .info-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.4px; }
+    .info-value { font-size: 14px; font-weight: 700; color: #1f2937; }
+    .search-results { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 2px solid rgba(124, 58, 237, 0.2); border-top: none; border-radius: 0 0 10px 10px; max-height: 320px; overflow-y: auto; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.15); z-index: 10; }
+    .result-item { padding: 14px 16px; border-bottom: 1px solid rgba(124, 58, 237, 0.08); cursor: pointer; transition: all 0.2s ease; }
+    .result-item:last-child { border-bottom: none; }
+    .result-item:hover { background: rgba(124, 58, 237, 0.05); }
+    .result-header { display: flex; gap: 12px; margin-bottom: 6px; }
+    .result-plate { font-size: 13px; font-weight: 700; color: #7c3aed; }
+    .result-id { font-size: 13px; font-weight: 600; color: #999; }
+    .result-name { font-size: 14px; font-weight: 600; color: #333; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>🚗 GPS Track</h1>
+      <p>Fleet Management</p>
+    </div>
+    <ul class="nav-menu">
+      <li class="nav-item"><a href="02-Map.html" class="nav-link active"><span class="nav-icon">🗺️</span>Live Map</a></li>
+      <li class="nav-item"><a href="03-Drivers.html" class="nav-link"><span class="nav-icon">👥</span>Drivers</a></li>
+      <li class="nav-item"><a href="06-Replay.html" class="nav-link"><span class="nav-icon">▶️</span>Replay</a></li>
+      <li class="nav-item"><a href="07-Settings.html" class="nav-link"><span class="nav-icon">⚙️</span>Settings</a></li>
+    </ul>
+  </div>
+
+  <!-- Main Content -->
+  <div class="content">
+    <div class="header">
+      <h2>Live Map</h2>
+      <div class="user-info">
+        <span>Welcome, Admin</span>
+        <div class="user-avatar">A</div>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="map-container">
+        <div id="mapContainer"></div>
+      </div>
+
+      <div class="status-dashboard" style="margin-bottom: 20px;">
+        <div class="status-card">
+          <div class="status-dot online"></div>
+          <div class="status-text">Online: <span id="onlineCount">0</span></div>
+        </div>
+        <div class="status-card">
+          <div class="status-dot offline"></div>
+          <div class="status-text">Offline: <span id="offlineCount">0</span></div>
+        </div>
+        <span class="source-badge demo" id="sourceBadge">● Demo data</span>
+      </div>
+
+      <div style="margin-top: 0;">
+        <div class="search-bar" style="position: relative;">
+          <input type="text" class="search-input" id="searchInput" placeholder="ค้นหาจากเลขหน้าจอ, ชื่อ, หรือทะเบียนรถ...">
+          <button class="search-btn" id="searchBtn">🔍 ค้นหา</button>
+          <div class="search-results hidden" id="searchResults"></div>
+        </div>
+        <div class="info-panel hidden" id="infoPanel"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var state = {
+    drivers: [],
+    filteredDrivers: [],
+    mapInstance: null,
+    markers: {},
+    searchTerm: '',
+    selectedDriver: null,
+    useApi: false
+  };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ===================== Map =====================
+  function initMap() {
+    var el = document.getElementById('mapContainer');
+    if (!el || !el.offsetHeight) { setTimeout(initMap, 200); return; }
+    var map = L.map('mapContainer').setView([13.7563, 100.5018], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(map);
+    state.mapInstance = map;
+  }
+
+  function upsertMarker(driver) {
+    var map = state.mapInstance;
+    if (!map || driver.lat == null || driver.lng == null) return;
+    var color = driver.status === 'active' ? '#22c55e' : '#ef4444';
+    var statusText = driver.status === 'active' ? 'online' : 'offline';
+
+    if (!state.markers[driver.id]) {
+      var marker = L.circleMarker([driver.lat, driver.lng], {
+        radius: 6, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.9
+      }).bindTooltip('<strong>' + esc(driver.id) + '</strong> | ' + esc(driver.name) +
+          '<br><span style="color:' + color + ';font-weight:700;">' + statusText + '</span>',
+          { direction: 'top' }).addTo(map);
+      marker.bindPopup(
+        '<div style="font-size:12px;min-width:200px;">' +
+          '<div style="font-weight:700;margin-bottom:6px;"><strong>' + esc(driver.id) + '</strong> | ' + esc(driver.plate) + '</div>' +
+          '<div style="margin-bottom:4px;">' + esc(driver.name) + '</div>' +
+          '<div style="color:' + color + ';font-weight:700;">' + statusText + '</div>' +
+        '</div>', { maxWidth: 220 });
+      marker.on('click', function () { state.selectedDriver = driver; renderInfoPanel(); });
+      state.markers[driver.id] = marker;
+    } else {
+      var m = state.markers[driver.id];
+      m.setLatLng([driver.lat, driver.lng]);
+      m.setStyle({ fillColor: color });
+    }
+  }
+
+  function renderStatusCounts() {
+    var online = state.drivers.filter(function (d) { return d.status === 'active'; }).length;
+    var offline = state.drivers.length - online;
+    document.getElementById('onlineCount').textContent = online;
+    document.getElementById('offlineCount').textContent = offline;
+  }
+
+  // ===================== Search & info =====================
+  function handleSearch() {
+    var term = (document.getElementById('searchInput').value || '').toLowerCase();
+    state.searchTerm = term;
+    state.filteredDrivers = state.drivers.filter(function (d) {
+      return d.id.toLowerCase().indexOf(term) !== -1 ||
+        (d.name || '').toLowerCase().indexOf(term) !== -1 ||
+        (d.plate || '').toLowerCase().indexOf(term) !== -1;
+    });
+    state.selectedDriver = null;
+    renderSearchResults();
+    renderInfoPanel();
+  }
+
+  function renderSearchResults() {
+    var box = document.getElementById('searchResults');
+    if (!state.searchTerm) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    box.classList.remove('hidden');
+    box.innerHTML = state.filteredDrivers.map(function (d) {
+      return '<div class="result-item" data-id="' + esc(d.id) + '">' +
+          '<div class="result-header"><span class="result-plate">' + esc(d.plate) + '</span>' +
+          '<span class="result-id">' + esc(d.id) + '</span></div>' +
+          '<div class="result-name">' + esc(d.name) + '</div></div>';
+    }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('.result-item'), function (el) {
+      el.addEventListener('click', function () { selectDriver(el.getAttribute('data-id')); });
+    });
+  }
+
+  function selectDriver(id) {
+    var d = state.drivers.find(function (x) { return x.id === id; });
+    if (!d) return;
+    state.selectedDriver = d;
+    state.searchTerm = '';
+    document.getElementById('searchInput').value = '';
+    renderSearchResults();
+    renderInfoPanel();
+    if (state.mapInstance && d.lat != null) {
+      state.mapInstance.setView([d.lat, d.lng], 15);
+      if (state.markers[id]) state.markers[id].openPopup();
+    }
+  }
+
+  function renderInfoPanel() {
+    var panel = document.getElementById('infoPanel');
+    var d = state.selectedDriver;
+    if (!d) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+    var statusDisplay = d.status === 'active' ? 'online' : 'offline';
+    var statusColor = d.status === 'active' ? '#22c55e' : '#ef4444';
+    panel.classList.remove('hidden');
+    panel.innerHTML =
+      '<div class="info-row"><span class="info-label">ทะเบียน:</span><span class="info-value">' + esc(d.plate) + '</span></div>' +
+      '<div class="info-row"><span class="info-label">เลขหน้าจอ:</span><span class="info-value">' + esc(d.id) + '</span></div>' +
+      '<div class="info-row"><span class="info-label">ชื่อ:</span><span class="info-value">' + esc(d.name) + '</span></div>' +
+      '<div class="info-row"><span class="info-label">เบอร์:</span><span class="info-value">' + esc(d.phone) + '</span></div>' +
+      '<div class="info-row"><span class="info-label">สหกรณ์:</span><span class="info-value">' + esc(d.cooperative) + '</span></div>' +
+      '<div class="info-row"><span class="info-label">STATUS:</span><span class="info-value" style="color:' + statusColor + ';"><strong>' + statusDisplay + '</strong></span></div>' +
+      '<div class="info-row" style="margin-left:auto;">' +
+        '<a class="btn-replay" data-id="' + esc(d.id) + '" style="text-decoration:none;display:inline-block;padding:8px 16px;background:linear-gradient(135deg,#7c3aed 0%,#ec4899 100%);color:white;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">▶ Replay</a>' +
+      '</div>';
+    var btn = panel.querySelector('.btn-replay');
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      sessionStorage.setItem('replayDriverId', btn.getAttribute('data-id'));
+      window.location.href = '06-Replay.html';
+    });
+  }
+
+  // ===================== Data: API mode =====================
+  function setBadge(live) {
+    var b = document.getElementById('sourceBadge');
+    if (live) { b.className = 'source-badge live'; b.textContent = '● Live (เชื่อมต่อ server)'; }
+    else { b.className = 'source-badge demo'; b.textContent = '● Demo data (ไม่ได้เชื่อม server)'; }
+  }
+
+  function fetchJSON(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status); return r.json();
+    });
+  }
+
+  function pollLive() {
+    Promise.all([fetchJSON('/api/drivers'), fetchJSON('/api/positions')])
+      .then(function (res) {
+        var drivers = res[0], positions = res[1];
+        // merge positions into driver records
+        drivers.forEach(function (d) {
+          var p = positions[d.id];
+          if (p) { d.lat = p.lat; d.lng = p.lng; d.status = p.online ? 'active' : 'inactive'; }
+          else { d.status = 'inactive'; }
+        });
+        state.drivers = drivers;
+        drivers.forEach(function (d) { if (d.lat != null) upsertMarker(d); });
+        renderStatusCounts();
+        // keep selected panel fresh
+        if (state.selectedDriver) {
+          var cur = drivers.find(function (x) { return x.id === state.selectedDriver.id; });
+          if (cur) { state.selectedDriver = cur; renderInfoPanel(); }
+        }
+      })
+      .catch(function () { /* transient network error — keep last good state */ });
+  }
+
+  // ===================== Data: demo fallback =====================
+  function startDemo() {
+    setBadge(false);
+    var locations = [
+      { lat: 13.7563, lng: 100.5018 }, { lat: 13.6516, lng: 100.5014 },
+      { lat: 13.8054, lng: 100.5500 }, { lat: 13.7250, lng: 100.4500 }, { lat: 13.6520, lng: 100.4950 }
+    ];
+    var names = ['สมชาย สมนวล','ประณัต ศิริสม','ณัฐวุฒิ เพชรา','กิตติศักดิ์ มหาชน','อนุวัฒน์ กิจการ','ธนา ธรรมสาธารณ์','อภิรัฒน์ สิทธิวรรค','ชาติชาย มิ่งขวัญ','ณรงค์ โภคา','สมโต จิตรสัน','วิชัย ศรีสิงห์','ประพัฒน์ ทองวิ','จิรายุ ศรีสกุล','ยุวศักดิ์ อินสมบัติ','เศรษฐ คำมา','นิรมล นามวงศ์','สุทธิพงษ์ จันทกร','ศรัณย์ ศรีวิไล','อมรศักดิ์ นามภูมิ','พิศาล สุขหาร'];
+    var phones = [], coops = ['สหกรณ์ทัพหลวง','สหกรณ์บางแค','สหกรณ์สีลม','สหกรณ์สุขุมวิท','สหกรณ์รัฐสรุน'];
+    var drivers = [];
+    for (var i = 1; i <= 20; i++) {
+      var loc = locations[i % locations.length];
+      drivers.push({
+        id: String(i).padStart(4, '0'),
+        plate: 'ทอ' + String(i).padStart(4, '0'),
+        name: names[i - 1],
+        phone: '08123456' + String(i).padStart(2, '0'),
+        cooperative: coops[i % coops.length],
+        status: Math.random() > 0.2 ? 'active' : 'inactive',
+        lat: loc.lat + (Math.random() - 0.5) * 0.05,
+        lng: loc.lng + (Math.random() - 0.5) * 0.05
+      });
+    }
+    state.drivers = drivers;
+    drivers.forEach(upsertMarker);
+    renderStatusCounts();
+    (function tick() {
+      state.drivers.forEach(function (d) {
+        d.lat += (Math.random() - 0.5) * 0.001;
+        d.lng += (Math.random() - 0.5) * 0.001;
+        upsertMarker(d);
+      });
+      setTimeout(tick, 2000);
+    })();
+  }
+
+  // ===================== Init =====================
+  function init() {
+    document.getElementById('searchInput').addEventListener('keyup', handleSearch);
+    document.getElementById('searchBtn').addEventListener('click', handleSearch);
+    initMap();
+
+    // Decide data source: try the API, fall back to demo data.
+    fetchJSON('/api/health').then(function () {
+      state.useApi = true;
+      setBadge(true);
+      pollLive();
+      setInterval(pollLive, 3000);
+    }).catch(function () {
+      startDemo();
+    });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
