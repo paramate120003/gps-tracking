@@ -21,7 +21,7 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
-const ONLINE_WINDOW_MS = 90 * 1000;
+const ONLINE_WINDOW_MS = 300 * 1000;  // 5 min — tolerates the ~90s watchdog cycle so it doesn't flap offline
 
 app.use(cors());
 app.use(express.json());
